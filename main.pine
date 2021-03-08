@@ -1,0 +1,68 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © GGamer314
+
+//@version=4
+strategy("SPY Trading Bot", overlay=true)
+
+ema1 = 5
+ema2 = 10
+ema3 = 10
+
+longSignal(price) => 
+    priceOverSMA = if price[0] > ema(price, ema3) 
+        true
+    else
+        false
+    smaCrossover = crossover(ema(price, ema1), ema(price, ema2))
+    
+    fast = 12, slow = 26
+    fastMA = ema(price, fast)
+    slowMA = ema(price, slow)
+    macd = fastMA - slowMA
+    signal = sma(macd, 9)
+    macdCrossover = if macd > signal
+        true
+    else
+        false
+    
+    entrySignal = false
+    
+    if(priceOverSMA)
+        if(smaCrossover)
+            if(macdCrossover)
+                entrySignal := true
+    entrySignal
+    
+shortSignal(price) => 
+    priceUnderSMA = if price[0] < ema(price, ema3) 
+        true
+    else
+        false
+    smaCrossunder = crossunder(ema(price, ema1), ema(price, ema2))
+    
+    fast = 12, slow = 26
+    fastMA = ema(price, fast)
+    slowMA = ema(price, slow)
+    macd = fastMA - slowMA
+    signal = sma(macd, 9)
+    macdCrossunder = if macd < signal
+        true
+    else
+        false
+    
+    exitSignal = false
+    
+    if(priceUnderSMA)
+        if(smaCrossunder)
+            if(macdCrossunder)
+                exitSignal := true
+    exitSignal
+        
+    
+longCondition = longSignal(close)
+if (longCondition)
+    strategy.entry("My Long Entry Id", strategy.long)
+
+shortCondition = shortSignal(close)
+if (shortCondition)
+    strategy.entry("My Short Entry Id", strategy.short)
