@@ -4,17 +4,8 @@
 //@version=4
 strategy("SPY Trading Bot", overlay=true)
 
-ema1 = 5
-ema2 = 10
-ema3 = 10
 
 longSignal(price) => 
-    priceOverSMA = if price[0] > ema(price, ema3) 
-        true
-    else
-        false
-    smaCrossover = crossover(ema(price, ema1), ema(price, ema2))
-    
     fast = 12, slow = 26
     fastMA = ema(price, fast)
     slowMA = ema(price, slow)
@@ -24,21 +15,27 @@ longSignal(price) =>
         true
     else
         false
+        
+    stochasticEntrySignal = false
+        
+    smoothK = input(14, minval=1), smoothD = input(3, minval=1)
+    k = sma(stoch(close, high, low, smoothK), 3)
+    d = sma(k, smoothD)
+    
+    if(d < 20)
+        if(k > d)
+            stochasticEntrySignal := true
     
     entrySignal = false
     
-    if(priceOverSMA)
-        if(smaCrossover)
-            if(macdCrossover)
-                entrySignal := true
+    if(macdCrossover)
+        if(stochasticEntrySignal)
+            entrySignal := true
     entrySignal
     
 shortSignal(price) => 
-    priceUnderSMA = if price[0] < ema(price, ema3) 
-        true
-    else
-        false
-    smaCrossunder = crossunder(ema(price, ema1), ema(price, ema2))
+    
+    //smaCrossunder = crossunder(sma(price, ema1), sma(price, ema2))
     
     fast = 12, slow = 26
     fastMA = ema(price, fast)
@@ -49,13 +46,22 @@ shortSignal(price) =>
         true
     else
         false
+        
+    stochasticExitSignal = false
+        
+    smoothK = input(14, minval=1), smoothD = input(3, minval=1)
+    k = sma(stoch(close, high, low, smoothK), 3)
+    d = sma(k, smoothD)
+    
+    if(d > 80)
+        if(k < d)
+            stochasticExitSignal := true
     
     exitSignal = false
     
-    if(priceUnderSMA)
-        if(smaCrossunder)
-            if(macdCrossunder)
-                exitSignal := true
+    if(macdCrossunder)
+        if(stochasticExitSignal)
+            exitSignal := true
     exitSignal
         
     
