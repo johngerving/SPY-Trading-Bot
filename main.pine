@@ -2,73 +2,168 @@
 // © GGamer314
 
 //@version=4
-strategy("SPY Trading Bot", overlay=true)
+strategy(overlay=true, shorttitle="SPY Trading Bot", default_qty_type = strategy.percent_of_equity, initial_capital = 100000, default_qty_value = 100, pyramiding = 0, title="SPY Trading Bot", currency = 'USD')
+
+////////// ** Inputs ** //////////
+
+// Stoploss and Profits Inputs
+
+stoploss = 0.01
+takeprofit = 0.02
+stoploss_level = strategy.position_avg_price * (1 - stoploss)
+takeprofit_level = strategy.position_avg_price * (1 + takeprofit)
 
 
-longSignal(price) => 
-    fast = 12, slow = 26
-    fastMA = ema(price, fast)
-    slowMA = ema(price, slow)
-    macd = fastMA - slowMA
-    signal = sma(macd, 9)
-    macdCrossover = if macd > signal
-        true
+////////// ** Indicators ** //////////
+
+// RSI
+
+len = 14
+src = close
+up = rma(max(change(src), 0), len)
+down = rma(-min(change(src), 0), len)
+rsi = down == 0 ? 100 : up == 0 ? 0 : 100 - 100 / (1 + up / down)
+
+// EMA
+
+// price = close
+// ema = ema(source, 15)
+// if(price > ema)
+//     emaBullish = true
+// else
+//     emaBullish = false
+
+
+// Bollinger Bands
+
+var bollingerEntry = array.new_bool(size = 7, initial_value = false)
+var bollingerExit = array.new_bool(size = 7, initial_value = false)
+
+source = close
+bollingerLength = input(20, minval=1)
+mult = input(2.0, minval=0.001, maxval=50)
+basis = sma(source, bollingerLength)
+dev = mult * stdev(source, bollingerLength)
+upper = basis + dev
+lower = basis - dev
+buyEntry = crossover(source, lower)
+sellEntry = crossunder(source, upper)
+
+margin = 0.2
+if (source < lower + margin and source > lower - margin)
+    array.shift(bollingerEntry)
+    array.push(bollingerEntry, true)
+else
+    array.shift(bollingerEntry)
+    array.push(bollingerEntry, false)
+if (source < upper + margin and source > upper - margin)
+    array.shift(bollingerExit)
+    array.push(bollingerExit, true)
+else
+    array.shift(bollingerExit)
+    array.push(bollingerExit, false)
+
+
+var stochasticEntry = array.new_bool(size = 7, initial_value = false)
+var stochasticExit = array.new_bool(size = 7, initial_value = false)
+
+stochasticLength = input(14, minval=1)
+OverBought = input(80)
+OverSold = input(20)
+smoothK = 3
+smoothD = 3
+k = sma(stoch(close, high, low, stochasticLength), smoothK)
+d = sma(k, smoothD)
+co = crossover(k,d)
+cu = crossunder(k,d)
+if (not na(k) and not na(d))
+	if (co and k < OverSold)
+		array.shift(stochasticEntry)
+        array.push(stochasticEntry, true)
     else
-        false
-        
-    stochasticEntrySignal = false
-        
-    smoothK = input(14, minval=1), smoothD = input(3, minval=1)
-    k = sma(stoch(close, high, low, smoothK), 3)
-    d = sma(k, smoothD)
-    
-    if(d < 20)
-        if(k > d)
-            stochasticEntrySignal := true
-    
-    entrySignal = false
-    
-    if(macdCrossover)
-        if(stochasticEntrySignal)
-            entrySignal := true
-    entrySignal
-    
-shortSignal(price) => 
-    
-    //smaCrossunder = crossunder(sma(price, ema1), sma(price, ema2))
-    
-    fast = 12, slow = 26
-    fastMA = ema(price, fast)
-    slowMA = ema(price, slow)
-    macd = fastMA - slowMA
-    signal = sma(macd, 9)
-    macdCrossunder = if macd < signal
-        true
+        array.shift(stochasticEntry)
+        array.push(stochasticEntry, false)
+	if (cu and k > OverBought)
+		array.shift(stochasticExit)
+        array.push(stochasticExit, true)
     else
-        false
-        
-    stochasticExitSignal = false
-        
-    smoothK = input(14, minval=1), smoothD = input(3, minval=1)
-    k = sma(stoch(close, high, low, smoothK), 3)
-    d = sma(k, smoothD)
-    
-    if(d > 80)
-        if(k < d)
-            stochasticExitSignal := true
-    
-    exitSignal = false
-    
-    if(macdCrossunder)
-        if(stochasticExitSignal)
-            exitSignal := true
-    exitSignal
-        
-    
-longCondition = longSignal(close)
-if (longCondition)
-    strategy.entry("My Long Entry Id", strategy.long)
+        array.shift(stochasticExit)
+        array.push(stochasticExit, false)
 
-shortCondition = shortSignal(close)
-if (shortCondition)
-    strategy.entry("My Short Entry Id", strategy.short)
+//////////** Strategy Signals ** //////////
+
+Buy = false
+
+//if(emaBullish)
+if(array.get(bollingerEntry, array.size(bollingerEntry) - 1))
+    if(array.get(stochasticEntry, array.size(stochasticEntry) - 1))
+        Buy := true
+    else if(array.get(stochasticEntry, array.size(stochasticEntry) - 2))
+        Buy := true
+    else if(array.get(stochasticEntry, array.size(stochasticEntry) - 3))
+        Buy := true
+    else if(array.get(stochasticEntry, array.size(stochasticEntry) - 4))
+        Buy := true
+    else if(array.get(stochasticEntry, array.size(stochasticEntry) - 5))
+        Buy := true
+    else if(array.get(stochasticEntry, array.size(stochasticEntry) - 6))
+        Buy := true
+    else if(array.get(stochasticEntry, array.size(stochasticEntry) - 7))
+        Buy := true
+    
+if(array.get(stochasticEntry, array.size(stochasticEntry) - 1))
+    if(array.get(bollingerEntry, array.size(bollingerEntry) - 1))
+        Buy := true
+    else if(array.get(bollingerEntry, array.size(bollingerEntry) - 2))
+        Buy := true
+    else if(array.get(bollingerEntry, array.size(bollingerEntry) - 3))
+        Buy := true
+    else if(array.get(bollingerEntry, array.size(bollingerEntry) - 4))
+        Buy := true
+    else if(array.get(bollingerEntry, array.size(bollingerEntry) - 5))
+        Buy := true
+    else if(array.get(bollingerEntry, array.size(bollingerEntry) - 6))
+        Buy := true
+    else if(array.get(bollingerEntry, array.size(bollingerEntry) - 7))
+        Buy := true
+
+Sell = false
+
+//if(not emaBullish)
+if(array.get(bollingerExit, array.size(bollingerExit) - 1))
+    if(array.get(stochasticExit, array.size(stochasticExit) - 1))
+        Sell := true
+    else if(array.get(stochasticExit, array.size(stochasticExit) - 2))
+        Sell := true
+    else if(array.get(stochasticExit, array.size(stochasticExit) - 3))
+        Sell := true
+    else if(array.get(stochasticExit, array.size(stochasticExit) - 4))
+        Sell := true
+    else if(array.get(stochasticExit, array.size(stochasticExit) - 5))
+        Sell := true
+    else if(array.get(stochasticExit, array.size(stochasticExit) - 6))
+        Sell := true
+    else if(array.get(stochasticExit, array.size(stochasticExit) - 7))
+        Sell := true
+        
+if(array.get(stochasticExit, array.size(stochasticExit) - 1))
+    if(array.get(bollingerExit, array.size(bollingerExit) - 1))
+        Sell := true
+    else if(array.get(bollingerExit, array.size(bollingerExit) - 2))
+        Sell := true
+    else if(array.get(bollingerExit, array.size(bollingerExit) - 3))
+        Sell := true
+    else if(array.get(bollingerExit, array.size(bollingerExit) - 4))
+        Sell := true
+    else if(array.get(bollingerExit, array.size(bollingerExit) - 5))
+        Sell := true
+    else if(array.get(bollingerExit, array.size(bollingerExit) - 6))
+        Sell := true
+    else if(array.get(bollingerExit, array.size(bollingerExit) - 7))
+        Sell := true
+
+strategy.entry("Long", strategy.long, when = Buy, alert_message = "Buy Signal!")
+//strategy.close("Long", when = Sell, alert_message = "Sell Signal!")
+strategy.entry("Short", strategy.short, when = Sell, alert_message = "Sell Signal!")
+
+
